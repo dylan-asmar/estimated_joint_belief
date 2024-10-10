@@ -6,7 +6,7 @@ using DiscreteValueIteration
 using Printf
 # import NativeSARSOP
 using JLD2
-
+using Dates
 using CSV
 using DataFrames
 
@@ -106,6 +106,6 @@ end
 # problem_symbol, max_time = PROBLEMS_TO_RUN[8]
 # solve_and_save_problem(problem_symbol, max_time)
 
-# for (problem_symbol, max_time) in PROBLEMS_TO_RUN
-#     solve_and_save_problem(problem_symbol, max_time)
-# end
+for (problem_symbol, max_time) in PROBLEMS_TO_RUN
+    solve_and_save_problem(problem_symbol, max_time)
+end
