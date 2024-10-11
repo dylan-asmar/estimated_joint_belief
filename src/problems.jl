@@ -61,7 +61,7 @@ PARAM_OPTIONS = Dict(
     :joint_meet_3x3_wp_uni_init => (JointMeetPOMDP, (num_agents=2,
         map_str="ooo\nooo\nooo",
         observation_option=:boundaries_both,
-        wall_penalty=-1.0)),
+        wall_penalty=-0.1)),
     :joint_meet_big_wp_uni_both => (JointMeetPOMDP, (num_agents=2,
         map_str="""oxoooxo
                    oxoooxo
@@ -79,6 +79,10 @@ PARAM_OPTIONS = Dict(
         observation_option=:left_and_same,
         wall_penalty=-0.1,
         observation_sigma=0.3)),
+    :joint_meet_3_3x3_wp_uni_init => (JointMeetPOMDP, (num_agents=3,
+        map_str="ooo\nooo\nooo",
+        observation_option=:boundaries_both,
+        wall_penalty=-0.1)),
 )
 
 function get_problem(

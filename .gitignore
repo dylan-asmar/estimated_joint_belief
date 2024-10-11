@@ -1,5 +1,7 @@
+.vscode
 archive/*
 .DS_Store
 Manifest.toml
 policy.out
 model.pomdpx
+src/policies/*
