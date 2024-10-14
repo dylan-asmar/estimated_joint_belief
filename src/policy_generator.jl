@@ -27,18 +27,18 @@ include("problems.jl")
 #     (:box_push_obs_05, 300.0),
 #     (:joint_meet_2x2, 120.0),
 #     (:joint_meet_2x2_13, 120.0),
+#     (:joint_meet_2x2_wp_uni_init, 240.0)
 #     (:joint_meet_3x3, 240.0),
 #     (:joint_meet_3x3_wp_uni_init, 300.0),
 #     (:joint_meet_big_wp_uni_both, 1200.0),
 #     (:joint_meet_big_wp_uni_ls_03, 1800.0),
 #     (:wireless, 600.0),
-#     (:wireless_wp, 600.0)
+#     (:wireless_wp, 600.0),
+#     (:joint_meet_3x3_wp_uni_init, 300.0),
+#     (:joint_meet_3_3x3_wp_uni_init, 8000.0),
+#     (:joint_meet_big_wp_uni_lr, 6000.0)
 # ]
 
-PROBLEMS_TO_RUN = [
-    (:joint_meet_3x3_wp_uni_init, 300.0),
-    (:joint_meet_3_3x3_wp_uni_init, 8000.0),
-]
 
 function solve_and_save_problem(problem_symbol::Symbol, max_time::Float64)
 
