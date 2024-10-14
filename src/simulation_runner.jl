@@ -1,193 +1,188 @@
 using POMDPs
 using POMDPTools
 using MultiAgentPOMDPProblems
-using LinearAlgebra
-using SARSOP
-import NativeSARSOP
-
-using POMCPOW
-
+using ProgressMeter
+using Printf
+using JLD2
+using CSV
+using DataFrames
 using DiscreteValueIteration
 
-using ProgressMeter
-
-using Printf
-
+include("problems.jl")
 include("suggested_action_policies.jl")
-include("simulate_test.jl")
+include("simulate.jl")
 
-num_agents = 2
+function load_policy(problem_symbol::Symbol)
+    # Load joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy
+    load_path = joinpath("src", "policies", "$problem_symbol.jld2")
+    loaded_data = JLD2.load(load_path)
+    joint_problem = loaded_data["joint_problem"]
+    agent_problems = loaded_data["agent_problems"]
+    joint_policy = loaded_data["joint_policy"]
+    agent_policies = loaded_data["agent_policies"]
+    joint_mdp_policy = loaded_data["joint_mdp_policy"]
 
-#* Checked!
-# problem_type = MultiTigerPOMDP
-# kwparams = (num_agents=num_agents,)
-
-#* Checked!
-# problem_type = BroadcastChannelPOMDP
-# kwparams = (num_agents=num_agents, buffer_fill_prob=[0.9, 0.1])
-# kwparams = (num_agents=num_agents, buffer_fill_prob=[0.9, 0.1], send_penalty=-0.2)
-# kwparams = (num_agents=num_agents, buffer_fill_prob=[0.2, 0.4, 0.4], send_penalty=-0.2)
-
-#* Checked, but still differs for upper bound when compared to "best" found Dec-POMDP
-problem_type = WirelessPOMDP
-kwparams = (
-    num_agents=num_agents,
-    idle_to_packet_prob=0.0470,
-    packet_to_idle_prob=0.0741,
-    discount_factor=0.99,
-)
-# kwparams = (
-#     num_agents=num_agents,
-#     idle_to_packet_prob=0.0470,
-#     packet_to_idle_prob=0.0741,
-#     discount_factor=0.99,
-#     send_penalty=-0.2
-# )
-
-
-#* Checked!
-# problem_type = StochasticMarsPOMDP
-# kwparams = (
-#     num_agents=num_agents, 
-#     map_str="ds\nsd",
-#     init_state=StochasticMarsState((1, 1), falses(4)),
-# )
-# kwparams = (
-#     num_agents=num_agents, 
-#     map_str="ds\nsd\ndx"
-# )
-
-#* Checked!
-# problem_type = BoxPushPOMDP
-# kwparams = (map_option=1,)
-# kwparams = (map_option=1, observation_prob=0.7)
-
-#* Checked, differs from "best" based on different initial state (same column vs corners)
-#* The 3x3 seems to check out
-# problem_type = JointMeetPOMDP
-# kwparams = (
-#     num_agents=num_agents,
-#     map_str="oo\noo", 
-#     observation_option=:boundaries_lr, 
-#     init_state=JointMeetState((2, 3))
-# )
-# kwparams = (
-#     num_agents=num_agents,
-#     map_str="ooo\nooo\nooo", 
-#     observation_option=:boundaries_both, 
-#     init_state=JointMeetState((3, 7)),
-#     meet_reward_locations=[1, 9]
-# )
-# kwparams = (
-#     num_agents=num_agents,
-#     map_str="ooo\nooo\nooo",
-#     observation_option=:boundaries_both,
-#     wall_penalty=-1.0, #* Emphasize individual vs joint policies!
-# )
-# kwparams = (
-#     num_agents=num_agents,
-#     map_str="""oxoooxo
-#                oxoooxo
-#                ooooooo
-#                oxoooxo
-#                oxoooxo""",
-#     observation_option=:boundaries_both,
-#     wall_penalty=-0.1, #* Emphasize individual vs joint policies!
-# )
-
-
-joint_problem = problem_type(; observation_agent=0, kwparams...);
-agent_problems = [problem_type(; observation_agent=ii, kwparams...) for ii in 1:num_agents];
-
-
-sarsop_solver = SARSOPSolver(; timeout=120.0);
-joint_policy = solve(sarsop_solver, joint_problem);
-joint_policy_value = value(joint_policy, initialstate(joint_problem));
-
-vi_solver = SparseValueIterationSolver(max_iterations=1000, belres=1e-5, verbose=false);
-joint_mdp_policy = solve(vi_solver, UnderlyingMDP(joint_problem));
-joint_mdp_policy_value = 0.0;
-for (si, p) in weighted_iterator(initialstate(joint_problem))
-    val = value(joint_mdp_policy, si)
-    joint_mdp_policy_value += p * value(joint_mdp_policy, si)
+    return joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy
 end
 
-# pomcpow_solver = POMCPOWSolver(
-#     # criterion=MaxUCB(20.0),
-#     max_depth=20,
-#     tree_queries=5000,
-#     # max_time=10.0,
-#     # exploration_constant=100.0,
-#     # k_action=10.0,
-#     # alpha_action=0.0,
-#     # k_observation=10.0,
-#     # alpha_observation=0.0,
-# )
-# joint_policy = solve(pomcpow_solver, joint_problem)
-
-
-sarsop_solver = SARSOPSolver(; timeout=120.0)
-agent_policies = Vector{AlphaVectorPolicy}(undef, num_agents)
-
-for (ii, ap) in enumerate(agent_problems)
-    agent_policies[ii] = solve(sarsop_solver, ap)
+function get_controller(control_option::Symbol, joint_problem, joint_policy, agent_problems, agent_policies)
+    if control_option == :mpomdp
+        control = JointPolicy(joint_problem, joint_policy)
+    elseif control_option == :pomdp_1
+        control = SinglePolicy(agent_problems[1], 1, agent_policies[1])
+    elseif control_option == :pomdp_2
+        control = SinglePolicy(agent_problems[2], 2, agent_policies[2])
+    elseif control_option == :independent
+        control = Independent(agent_problems, agent_policies)
+    elseif control_option == :conflate_joint
+        control = ConflateJoint(joint_problem, joint_policy, agent_problems, agent_policies)
+    elseif control_option == :conflate_alpha
+        control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
+            prune_option=:alpha,
+            joint_belief_delta=1e-5,
+            single_belief_delta=1e-5
+        )
+    elseif control_option == :conflate_action
+        control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
+            prune_option=:action,
+            joint_belief_delta=1e-5,
+            single_belief_delta=1e-5
+        )
+    else
+        throw(ArgumentError("Invalid control option: $control_option"))
+    end
 end
 
-individual_policy_value = value(agent_policies[1], initialstate(joint_problem))
+function print_policy_values(problem_symbol::Symbol)
+    p = get_problem(problem_symbol, 1)
+    num_agents = p.num_agents
+    
+    # Load the CSV file
+    csv_file = joinpath("src", "policies", "policy_values.csv")
+    df = CSV.read(csv_file, DataFrame)
 
-@printf("Joint MDP:     %10.4f\n", joint_mdp_policy_value)
-@printf("Joint Policy:  %10.4f\n", joint_policy_value)
-@printf("Individual:    %10.4f\n", individual_policy_value)
+    # Filter for the most recent entries for the given problem symbol
+    most_recent_entries = df[df[:, :problem] .== string(problem_symbol), :]
 
-# joint_control = SinglePolicy(joint_problem, 0, joint_policy);
-joint_control = nothing
-# control = JointPolicy(joint_problem, joint_policy);
+    # Sort by date and time to get the most recent ones first
+    most_recent_entries = sort(most_recent_entries, [:date, :time], rev=true)
 
-# control = SinglePolicy(joint_problem, 0, joint_policy);
-control = SinglePolicy(agent_problems[1], 1, agent_policies[1]);
-# control = Independent(agent_problems, agent_policies);
+    # Get the most recent entry for each policy
+    unique_policies = unique(most_recent_entries[:, :policy])
+    most_recent_policy_entries = DataFrame()
 
-# control = ConflateJoint(joint_problem, joint_policy, agent_problems, agent_policies);
+    for policy in unique_policies
+        policy_entries = most_recent_entries[most_recent_entries[:, :policy] .== policy, :]
+        most_recent_policy_entry = first(policy_entries, 1)
+        append!(most_recent_policy_entries, most_recent_policy_entry)
+    end
 
-control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
-    prune_option=:action,
-    joint_belief_delta=2*eps(Float64),
-    single_belief_delta=2*eps(Float64)
-);
+    # Create a dictionary mapping policy to value for the most recent entries
+    policy_to_value = Dict(most_recent_policy_entries[:, :policy] .=> most_recent_policy_entries[:, :value])
 
-# s0 = rand(initialstate(joint_problem))
+    @printf("%-10s : %10.4f\n", "MMDP", policy_to_value["mmdp"])
+    @printf("%-10s : %10.4f\n", "MPOMDP", policy_to_value["mpomdp"])
+    for ii in 1:num_agents
+        pomdp_str = "pomdp_$ii"
+        @printf("%-10s : %10.4f\n", uppercase(pomdp_str), policy_to_value[pomdp_str])
+    end
+end
+
+function run_simulation_for_policy(problem_symbol::Symbol, control_option::Symbol)
+    
+    joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(problem_symbol)
+
+    print_policy_values(problem_symbol)
+
+    cum_discounted_reward = 0.0
+    cum_reward = 0.0
+    num_runs = 2000
+    discounted_reward = zeros(Float64, num_runs)
+    reward = zeros(Float64, num_runs)
+
+    @showprogress Threads.@threads for run_idx in 1:num_runs
+        seed = run_idx
+        s0 = rand(MersenneTwister(seed), initialstate(joint_problem))
+        
+        control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies)
+
+        results = run_simulation(
+            joint_problem, s0, control;
+            seed=seed,
+            text_output=false, 
+            max_steps=50,
+            show_plots=false,
+            joint_control=nothing
+        )
+        discounted_reward[seed] = results.cum_discounted_rew
+        reward[seed] = results.cum_reward
+    end
+
+    ave_cum_discounted_reward = mean(discounted_reward)
+    std_cum_discounted_reward = std(discounted_reward)
+    std_err_discounted_reward = 1.96 * std_cum_discounted_reward / sqrt(num_runs)
+    ave_cum_reward = mean(reward)
+    std_cum_reward = std(reward)
+    std_err_reward = 1.96 * std_cum_reward / sqrt(num_runs)
+
+    @printf("Control Option: %s\n", control_option)
+    @printf("%-40s : %10.4f ± %4.3f\n", "Average Cumulative Discounted Reward", ave_cum_discounted_reward, std_err_discounted_reward)
+    @printf("%-40s : %10.4f ± %4.3f\n", "Average Cumulative Reward", ave_cum_reward, std_err_reward)
+
+end
+
+
+sims_to_run = [:tiger, :tiger_3, :tiger_4, 
+                :broadcast, :broadcast_3_wp_low, 
+                :joint_meet_2x2, :joint_meet_2x2_13, 
+                :joint_meet_3x3, :joint_meet_3x3_wp_uni_init, :joint_meet_3_3x3_wp_uni_init, 
+                :joint_meet_big_wp_uni_lr, 
+                :box_push, 
+                :wireless, :wireless_wp, 
+                :stochastic_mars, :stochastic_mars_uni_init, :stochastic_mars_3_uni_init,
+                :stochastic_mars_big_uni]
+
+@printf(" INDEPENDENT\n")
+for sim in sims_to_run
+    @printf(" *** %s ***\n", sim)
+    run_simulation_for_policy(sim, :independent)
+end
+
+@printf(" MPOMDP\n")
+for sim in sims_to_run
+    @printf(" *** %s ***\n", sim)
+    run_simulation_for_policy(sim, :mpomdp)
+end
+
+@printf(" MPOMDP-C\n")
+for sim in sims_to_run
+    @printf(" *** %s ***\n", sim)
+    run_simulation_for_policy(sim, :conflate_joint)
+end
+
+# seed = 3
+
+# problem_symbol = :joint_meet_big_wp_uni_ls_03
+# problem_symbol = :tiger
+# control_option = :conflate_alpha
+
+# joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(problem_symbol)
+
+# print_policy_values(problem_symbol)
+
+# # joint_control = get_controller(:mpomdp, joint_problem, joint_policy, agent_problems, agent_policies)
+# joint_control = nothing
+# control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies)
+
+# seed = 5
+
+# s0 = rand(MersenneTwister(seed), initialstate(joint_problem))
 
 # results = run_simulation(
 #     joint_problem, s0, control;
-#     seed=1,
-#     text_output=false, 
-#     max_steps=20,
-#     show_plots=false,
+#     seed=seed,
+#     text_output=true, 
+#     max_steps=10,
+#     show_plots=true,
 #     joint_control=joint_control
 # )
-
-cum_discounted_reward = 0.0
-cum_reward = 0.0
-num_runs = 50
-@showprogress for seed in 1:num_runs
-    s0 = rand(initialstate(joint_problem))
-    joint_control = nothing
-    control = JointPolicy(joint_problem, joint_policy);
-
-    results = run_simulation(
-        joint_problem, s0, control;
-        seed=seed,
-        text_output=false, 
-        max_steps=45,
-        show_plots=false,
-        joint_control=joint_control
-    )
-    cum_discounted_reward += results.cum_discounted_rew
-    cum_reward += results.cum_reward
-end
-
-ave_cum_discounted_reward = cum_discounted_reward / num_runs
-# ave_reward_per_step = cum_reward / num_runs / 45 # 45 steps
-
-println("Average Cumulative Discounted Reward: $ave_cum_discounted_reward")
-# println("Average Reward Per Step: $ave_reward_per_step")

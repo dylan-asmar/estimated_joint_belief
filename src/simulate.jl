@@ -13,6 +13,8 @@ using Printf
 # using Gurobi
 using Distances
 
+using LinearAlgebra
+
 using DataFrames
 using ProgressMeter
 
@@ -41,7 +43,7 @@ function run_simulation(
     seed::Int=42,
     show_plots::Bool=false,
     text_output::Bool=false,
-    joint_control::Union{Nothing, SinglePolicy}=nothing
+    joint_control::Union{Nothing, SinglePolicy, JointPolicy}=nothing
 ) where {S, A, O}
     rng = MersenneTwister(seed)
     

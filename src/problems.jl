@@ -83,6 +83,14 @@ PARAM_OPTIONS = Dict(
         map_str="ooo\nooo\nooo",
         observation_option=:boundaries_both,
         wall_penalty=-0.1)),
+    :joint_meet_big_wp_uni_lr => (JointMeetPOMDP, (num_agents=2,
+        map_str="""oxoooxo
+                   oxoooxo
+                   ooooooo
+                   oxoooxo
+                   oxoooxo""",
+        observation_option=:boundaries_lr,
+        wall_penalty=-0.1))
 )
 
 function get_problem(
@@ -104,3 +112,14 @@ function get_problem(
 
     return problem_type(; observation_agent=observation_agent, kwparams...)
 end
+
+
+# # Loops through PARAM_OPTIONS 
+# for k in keys(PARAM_OPTIONS)
+#     try
+#         @printf("\nProblem: %s\n", k)
+#         print_policy_values(k)
+#     catch e
+#         continue
+#     end
+# end

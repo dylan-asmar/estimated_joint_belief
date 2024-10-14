@@ -126,6 +126,46 @@ function Conflation(
         surrogate_beliefs, prune_option, joint_belief_delta, single_belief_delta)
 end
 
+
+struct DecConflation{S, A, O} <: MultiAgentControlStrategy
+    joint_problem::POMDP{S, A, O}
+    joint_policy::AlphaVectorPolicy
+    indiv_control::Vector{SinglePolicy{S, A, O}}
+    surrogate_beliefs::Vector{Dict{Int, EstimatedBelief}}
+    prune_option::Symbol
+    joint_belief_delta::Float64
+    single_belief_delta::Float64
+end
+function DecConflation(
+    joint_problem::POMDP{S, A, O},
+    joint_policy::AlphaVectorPolicy,
+    problems::Vector{<:POMDP},
+    policies::Vector{AlphaVectorPolicy};
+    prune_option::Symbol=:alpha,
+    joint_belief_delta::Float64=0.0,
+    single_belief_delta::Float64=0.0
+) where {S,A,O}
+    num_agents = problems[1].num_agents
+    indiv_control = Vector{SinglePolicy{S,A,O}}(undef, num_agents)
+    surrogate_beliefs = Vector{Dict{Int, EstimatedBelief}}(undef, num_agents)
+    for ii in 1:num_agents
+        indiv_control[ii] = SinglePolicy(problems[ii], ii, policies[ii])
+        
+        # Surrogate beliefs are using the actual problems and policies of other agents
+        surrogate_beliefs_i = Dict{Int, EstimatedBelief}()
+        for jj in 1:num_agents
+            if ii == jj
+                continue
+            end
+            surrogate_beliefs_i[jj] = EstimatedBelief(problems[jj], policies[jj])
+        end
+        surrogate_beliefs[ii] = surrogate_beliefs_i
+    end
+    return Conflation(joint_problem, joint_policy, indiv_control, 
+        surrogate_beliefs, prune_option, joint_belief_delta, single_belief_delta)
+end
+
+
 struct EstimatedJoint{S, A, O} <: MultiAgentControlStrategy
     joint_problem::POMDP{S, A, O}
     joint_policy::AlphaVectorPolicy
@@ -379,7 +419,12 @@ function conflate_beliefs(pomdp::POMDP, beliefs::Vector)
         b_vec = beliefvec(pomdp, num_states, b)
         bc .*= b_vec
     end
-    bc = normalize(bc, 1)
+    sum_bc = sum(bc)
+    if sum_bc > 0.0
+        bc = bc ./ sum_bc
+    else
+       throw(ErrorException("Beliefs are orthogonal"))
+    end
     return DiscreteBelief(pomdp, bc)
 end
 
