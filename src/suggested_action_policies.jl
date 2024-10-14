@@ -290,6 +290,7 @@ function prune!(control::Conflation{S, A, O}, acts::Vector{A}) where {S,A,O}
             end
         end
         if one_remaining
+            unique!(sort!(delete_idxs))
             deleteat!(eb.beliefs, delete_idxs)
             deleteat!(eb.weights, delete_idxs)
         else
@@ -314,6 +315,7 @@ function prune!(control::Conflation, alpha_idx::Vector{Int})
             end
         end
         if one_remaining
+            unique!(sort!(delete_idxs))
             deleteat!(eb.beliefs, delete_idxs)
             deleteat!(eb.weights, delete_idxs)
         else
@@ -372,6 +374,7 @@ function select_belief(control::Conflation)
         for ii in 2:num_agents
             # Find any falses
             delete_idxs = findall(x -> !x, belief_not_orthogonal[ii-1])
+            unique!(sort!(delete_idxs))
             deleteat!(control.surrogate_beliefs[ii].beliefs, delete_idxs)
             deleteat!(control.surrogate_beliefs[ii].weights, delete_idxs)
         end
@@ -402,6 +405,7 @@ function select_belief(control::Conflation)
             end
         end 
     end
+    unique!(sort!(delete_idxs))
     deleteat!(conflated_beliefs, delete_idxs)
     deleteat!(weights, delete_idxs)
     
