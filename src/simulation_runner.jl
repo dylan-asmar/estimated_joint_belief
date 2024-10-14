@@ -25,7 +25,11 @@ function load_policy(problem_symbol::Symbol)
     return joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy
 end
 
-function get_controller(control_option::Symbol, joint_problem, joint_policy, agent_problems, agent_policies)
+function get_controller(
+    control_option::Symbol, joint_problem, joint_policy, agent_problems, agent_policies;
+    delta_single::Float64=1e-5,
+    delta_joint::Float64=1e-5
+)
     if control_option == :mpomdp
         control = JointPolicy(joint_problem, joint_policy)
     elseif control_option == :pomdp_1
@@ -39,14 +43,14 @@ function get_controller(control_option::Symbol, joint_problem, joint_policy, age
     elseif control_option == :conflate_alpha
         control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
             prune_option=:alpha,
-            joint_belief_delta=1e-5,
-            single_belief_delta=1e-5
+            joint_belief_delta=delta_joint,
+            single_belief_delta=delta_single
         )
     elseif control_option == :conflate_action
         control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
             prune_option=:action,
-            joint_belief_delta=1e-5,
-            single_belief_delta=1e-5
+            joint_belief_delta=delta_joint,
+            single_belief_delta=delta_single
         )
     else
         throw(ArgumentError("Invalid control option: $control_option"))
@@ -88,23 +92,29 @@ function print_policy_values(problem_symbol::Symbol)
     end
 end
 
-function run_simulation_for_policy(problem_symbol::Symbol, control_option::Symbol)
+function run_simulation_for_policy(problem_symbol::Symbol, control_option::Symbol; 
+    delta_single::Float64=1e-5, delta_joint::Float64=1e-5)
     
     joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(problem_symbol)
 
+    num_agents = joint_problem.num_agents
+    
     print_policy_values(problem_symbol)
 
-    cum_discounted_reward = 0.0
-    cum_reward = 0.0
     num_runs = 2000
     discounted_reward = zeros(Float64, num_runs)
     reward = zeros(Float64, num_runs)
+    max_num_beliefs = [zeros(Int, num_runs) for _ in 1:num_agents]
+    ave_num_beliefs = [zeros(Float64, num_runs) for _ in 1:num_agents]
 
     @showprogress Threads.@threads for run_idx in 1:num_runs
         seed = run_idx
         s0 = rand(MersenneTwister(seed), initialstate(joint_problem))
         
-        control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies)
+        control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies;
+            delta_single=delta_single,
+            delta_joint=delta_joint
+        )
 
         results = run_simulation(
             joint_problem, s0, control;
@@ -114,67 +124,116 @@ function run_simulation_for_policy(problem_symbol::Symbol, control_option::Symbo
             show_plots=false,
             joint_control=nothing
         )
-        discounted_reward[seed] = results.cum_discounted_rew
-        reward[seed] = results.cum_reward
+        discounted_reward[run_idx] = results.cum_discounted_rew
+        reward[run_idx] = results.cum_reward
+        for jj in 1:(num_agents-1)
+            max_num_beliefs[jj][run_idx] = maximum(results.num_beliefs[jj+1])
+            ave_num_beliefs[jj][run_idx] = mean(results.num_beliefs[jj+1])
+        end
     end
 
     ave_cum_discounted_reward = mean(discounted_reward)
     std_cum_discounted_reward = std(discounted_reward)
-    std_err_discounted_reward = 1.96 * std_cum_discounted_reward / sqrt(num_runs)
+    ci_discounted_reward = 1.96 * std_cum_discounted_reward / sqrt(num_runs)
     ave_cum_reward = mean(reward)
     std_cum_reward = std(reward)
-    std_err_reward = 1.96 * std_cum_reward / sqrt(num_runs)
+    ci_reward = 1.96 * std_cum_reward / sqrt(num_runs)
+
+    max_max_num_beliefs = zeros(Float64, num_agents)
+    ave_max_num_beliefs = zeros(Float64, num_agents)
+    ci_max_num_beliefs = zeros(Float64, num_agents)
+    ave_ave_num_beliefs = zeros(Float64, num_agents)
+    ci_ave_num_beliefs = zeros(Float64, num_agents)
+    for jj in 1:(num_agents-1)
+        max_max_num_beliefs[jj] = maximum(max_num_beliefs[jj])
+        ave_max_num_beliefs[jj] = mean(max_num_beliefs[jj])
+        ci_max_num_beliefs[jj] = 1.96 * std(max_num_beliefs[jj]) / sqrt(num_runs)
+        ave_ave_num_beliefs[jj] = mean(ave_num_beliefs[jj])
+        ci_ave_num_beliefs[jj] = 1.96 * std(ave_num_beliefs[jj]) / sqrt(num_runs)
+    end
 
     @printf("Control Option: %s\n", control_option)
-    @printf("%-40s : %10.4f ± %4.3f\n", "Average Cumulative Discounted Reward", ave_cum_discounted_reward, std_err_discounted_reward)
-    @printf("%-40s : %10.4f ± %4.3f\n", "Average Cumulative Reward", ave_cum_reward, std_err_reward)
+    @printf("%-40s : %10.4f ± %4.3f\n", "Average Cumulative Discounted Reward", ave_cum_discounted_reward, ci_discounted_reward)
+    @printf("%-40s : %10.4f ± %4.3f\n", "Average Cumulative Reward", ave_cum_reward, ci_reward)
+    for jj in 1:(num_agents-1)
+        @printf("%-40s : %10.4f ± %4.3f\n", "Average Max Num Beliefs $(jj+1)", ave_max_num_beliefs[jj], ci_max_num_beliefs[jj])
+        @printf("%-40s : %10.4f ± %4.3f\n", "Average Ave Num Beliefs $(jj+1)", ave_ave_num_beliefs[jj], ci_ave_num_beliefs[jj])
+    end
 
 end
 
 
-sims_to_run = [:tiger, :tiger_3, :tiger_4, 
+sims_to_run = [ :tiger, :tiger_3, :tiger_4, 
                 :broadcast, :broadcast_3_wp_low, 
-                :joint_meet_2x2, :joint_meet_2x2_13, 
+                :joint_meet_2x2, :joint_meet_2x2_13, :joint_meet_2x2_wp_uni_init,
                 :joint_meet_3x3, :joint_meet_3x3_wp_uni_init, :joint_meet_3_3x3_wp_uni_init, 
                 :joint_meet_big_wp_uni_lr, 
-                :box_push, 
+                :box_push, :box_push_obs_05, 
                 :wireless, :wireless_wp, 
                 :stochastic_mars, :stochastic_mars_uni_init, :stochastic_mars_3_uni_init,
-                :stochastic_mars_big_uni]
-
-@printf(" INDEPENDENT\n")
+                :stochastic_mars_big_uni
+]
+               
+@printf("\n\n**INDEPENDENT**\n\n")
 for sim in sims_to_run
-    @printf(" *** %s ***\n", sim)
+    @printf("\n*** %s ***\n", sim)
     run_simulation_for_policy(sim, :independent)
 end
 
-@printf(" MPOMDP\n")
+@printf("\n\n**MPOMDP**\n\n")
 for sim in sims_to_run
-    @printf(" *** %s ***\n", sim)
+    @printf("\n*** %s ***\n", sim)
     run_simulation_for_policy(sim, :mpomdp)
 end
 
-@printf(" MPOMDP-C\n")
+@printf("\n\n**POMDP-1**\n\n")
 for sim in sims_to_run
-    @printf(" *** %s ***\n", sim)
+    @printf("\n*** %s ***\n", sim)
+    run_simulation_for_policy(sim, :pomdp_1)
+end
+
+@printf("\n\n**MPOMDP-C**\n\n")
+for sim in sims_to_run
+    @printf("\n*** %s ***\n", sim)
     run_simulation_for_policy(sim, :conflate_joint)
 end
 
-# seed = 3
+@printf("\n\n**MCAS-α**\n\n")
+for sim in sims_to_run
+    @printf("\n*** %s ***\n", sim)
+    run_simulation_for_policy(sim, :conflate_alpha)
+end
 
-# problem_symbol = :joint_meet_big_wp_uni_ls_03
-# problem_symbol = :tiger
-# control_option = :conflate_alpha
+@printf("\n\n**MCAS 1e-5**\n\n")
+for sim in sims_to_run
+    @printf("\n*** %s ***\n", sim)
+    run_simulation_for_policy(sim, :conflate_action)
+end
+
+@printf("\n\n**MCAS 1e-2**\n\n")
+for sim in sims_to_run
+    @printf("\n*** %s ***\n", sim)
+    run_simulation_for_policy(sim, :conflate_action; delta_single=1e-2, delta_joint=1e-2)
+end
+
+
+# problem_symbol = :joint_meet_big_wp_uni_lr
+# control_option = :conflate_action
 
 # joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(problem_symbol)
 
 # print_policy_values(problem_symbol)
 
-# # joint_control = get_controller(:mpomdp, joint_problem, joint_policy, agent_problems, agent_policies)
+# # # joint_control = get_controller(:mpomdp, joint_problem, joint_policy, agent_problems, agent_policies)
 # joint_control = nothing
-# control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies)
+# # control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies)
+# control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
+#             prune_option=:action,
+#             joint_belief_delta=1e-2,
+#             single_belief_delta=1e-2
+#         )
 
-# seed = 5
+# seed = 112
 
 # s0 = rand(MersenneTwister(seed), initialstate(joint_problem))
 
@@ -182,7 +241,13 @@ end
 #     joint_problem, s0, control;
 #     seed=seed,
 #     text_output=true, 
-#     max_steps=10,
-#     show_plots=true,
+#     max_steps=5,
+#     show_plots=false,
 #     joint_control=joint_control
 # )
+
+# joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(:joint_meet_big_wp_uni_lr)
+
+# b0 = initialstate(joint_problem)
+# v_b0 = value(joint_policy, b0)
+# @printf("v_b0: %f\n", v_b0)
