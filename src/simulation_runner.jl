@@ -222,13 +222,6 @@ function run_simulation_for_policy(problem_symbol::Symbol, control_option::Symbo
     ]
 
     results_row = vcat(results_prob_data, results_data, results_data_per_agent)
-
-    println(results_row)
-    println(df_cols)
-    println(length(results_row))
-    println(length(df_cols))
-    
-    println(typeof(results_row))
     
     df = DataFrame([[r] for r in results_row], df_cols)
 
@@ -238,16 +231,25 @@ end
 
 # global_logger(ConsoleLogger(Debug)) # Comment/uncomment as desired
 
-sims_to_run = [ :tiger, :tiger_3, :tiger_4, 
-                :broadcast, :broadcast_3_wp_low, 
-                :joint_meet_2x2, :joint_meet_2x2_13, :joint_meet_2x2_wp_uni_init,
-                :joint_meet_3x3, :joint_meet_3x3_wp_uni_init, :joint_meet_3_3x3_wp_uni_init, 
-                :joint_meet_big_wp_uni_lr, 
-                :box_push, :box_push_obs_05, 
-                # :wireless, :wireless_wp, 
-                :stochastic_mars, :stochastic_mars_uni_init, :stochastic_mars_3_uni_init,
-                :stochastic_mars_big_uni
-]
+# sims_to_run = [ :tiger, :tiger_3, :tiger_4, 
+#                 :broadcast, :broadcast_3_wp_low,                 
+#                 :joint_meet_2x2, 
+#                 :joint_meet_2x2_13, 
+#                 :joint_meet_3x3,  
+#                 :joint_meet_2x2_wp_uni_init,
+#                 :box_push,
+#                 :stochastic_mars,
+#                 :stochastic_mars_uni_init,
+#                 :joint_meet_3x3_wp_uni_init,
+#                 :stochastic_mars_3_uni_init,
+#                 :stochastic_mars_big_uni,
+#                 :joint_meet_3_3x3_wp_uni_init,
+#                 :wireless, :wireless_wp,
+#                 :box_push_obs_05,
+#                 :joint_meet_big_wp_uni_lr, 
+# ]
+
+sims_to_run = [:joint_meet_big_wp_uni_lr]
 
 controllers_to_run = [:independent, :mpomdp, :pomdp_1, :conflate_joint, :conflate_alpha, :conflate_action]
 
@@ -255,6 +257,14 @@ controllers_to_run = [:independent, :mpomdp, :pomdp_1, :conflate_joint, :conflat
 # controllers_to_run = [:mpomdp, :pomdp_1, :conflate_action]
 
 num_runs = 2000
+
+
+existing_results = joinpath("src", "results", "results_2024_10-15_15-44.csv")
+if isfile(existing_results)
+    df = CSV.read(existing_results, DataFrame)
+else
+    df = DataFrame()
+end
 
 df = DataFrame()
 results_fn = joinpath("src", "results", "results_$(Dates.format(now(), "yyyy-mm-dd_HH-MM")).csv")

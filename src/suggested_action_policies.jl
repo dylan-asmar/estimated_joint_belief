@@ -341,7 +341,7 @@ function enforce_max_size!(eb::EstimatedBelief, max_size::Int)
     # If number of beleifs is greater than the max size, reduce the number by removing
     # similar beliefs even if outside of delta.
     if length(beliefs) > max_size
-        @info "Reached max surrogate beliefs: $(length(beliefs)), reducing to $max_size"
+        @debug "Reached max surrogate beliefs: $(length(beliefs)), reducing to $max_size"
         
         n = length(beliefs)
         dists = Vector{NamedTuple}(undef, div(n * (n - 1), 2))
