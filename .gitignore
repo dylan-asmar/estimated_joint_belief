@@ -5,3 +5,4 @@ Manifest.toml
 policy.out
 model.pomdpx
 src/policies/*
+src/results/*

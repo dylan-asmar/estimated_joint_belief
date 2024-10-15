@@ -37,10 +37,11 @@ function Base.show(io::IO, results::SimulateResults)
     ks = keys(results.num_beliefs)
     tot = 0
     for k in sort(collect(ks))
+        println(io, "\tMax Num Beliefs $k            : $(maximum(results.num_beliefs[k]))")
         println(io, "\tAverage Num Beliefs $k        : $(mean(results.num_beliefs[k]))")
+        println(io, "\tStd Num Beliefs $k            : $(std(results.num_beliefs[k]))")
         tot += sum(results.num_beliefs[k])
     end
-    println(io, "\tTotal Average Num Beliefs    : $(tot / (length(results.num_beliefs) * results.step_count))")
 end
 
 function run_simulation(
@@ -51,7 +52,7 @@ function run_simulation(
     seed::Int=42,
     show_plots::Bool=false,
     text_output::Bool=false,
-    joint_control::Union{Nothing, SinglePolicy, JointPolicy}=nothing
+    joint_control=nothing
 ) where {S, A, O}
     rng = MersenneTwister(seed)
     
@@ -122,6 +123,10 @@ function run_simulation(
             println()
         end
         
+        # For debugging
+        # if results.step_count == 13
+        #     return joint_control, control, sp, o, r
+        # end
         # Update the results struct
         results.cum_reward += r
         results.cum_discounted_rew += r * γ^(results.step_count-1)
@@ -129,7 +134,14 @@ function run_simulation(
         # Plotting options to visualize the simulation and policy decisions
         if show_plots
             if !isnothing(joint_control)
-                plot_step = (s=s, a=act, joint_a=joint_a, joint_b=joint_control.belief)
+                if joint_control isa ConflateJoint
+                    joint_conflated_b = conflate_beliefs(joint_control.joint_problem, [cp.belief for cp in joint_control.indiv_control])
+                    plot_step = (s=s, a=act, joint_a=joint_a, joint_b=joint_conflated_b)
+                elseif joint_control isa SinglePolicy || joint_control isa JointPolicy
+                    plot_step = (s=s, a=act, joint_a=joint_a, joint_b=joint_control.belief)
+                else
+                    throw(ArgumentError("Invalid joint control for simulation plotting: $(typeof(joint_control))"))
+                end
             else
                 plot_step = (s=s, a=act)
             end
@@ -144,9 +156,27 @@ function run_simulation(
         if !isnothing(joint_control)
             update_belief!(joint_control, act, o)
         end
-        
+            
         # Update the state and check if the simulation should continue
         s = sp
+        
+        # Plotting options to visualize the simulation and policy decisions
+        if show_plots
+            if !isnothing(joint_control)
+                if joint_control isa ConflateJoint
+                    joint_conflated_b = conflate_beliefs(joint_control.joint_problem, [cp.belief for cp in joint_control.indiv_control])
+                    plot_step = (s=s, joint_b=joint_conflated_b)
+                elseif joint_control isa SinglePolicy || joint_control isa JointPolicy
+                    plot_step = (s=s, joint_b=joint_control.belief)
+                else
+                    throw(ArgumentError("Invalid joint control for simulation plotting: $(typeof(joint_control))"))
+                end
+            else
+                plot_step = (s=s, a=act)
+            end
+            plt = POMDPTools.render(control, plot_step)
+            display(plt)
+        end
         
         if isterminal(problem, s) || results.step_count >= max_steps
             stop_simulating = true

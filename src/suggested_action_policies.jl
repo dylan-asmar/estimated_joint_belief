@@ -102,6 +102,7 @@ struct Conflation{S, A, O} <: MultiAgentControlStrategy
     prune_option::Symbol
     joint_belief_delta::Float64
     single_belief_delta::Float64
+    max_surrogate_beliefs::Dict{Int, Int}
 end
 function Conflation(
     joint_problem::POMDP{S, A, O},
@@ -110,9 +111,16 @@ function Conflation(
     policies::Vector{AlphaVectorPolicy};
     prune_option::Symbol=:alpha,
     joint_belief_delta::Float64=0.0,
-    single_belief_delta::Float64=0.0
+    single_belief_delta::Float64=0.0,
+    max_surrogate_beliefs::Union{Int, Dict{Int, Int}}=1_000_000
 ) where {S,A,O}
+        
     num_agents = problems[1].num_agents
+    
+    if typeof(max_surrogate_beliefs) == Int
+        max_surrogate_beliefs = Dict(ii => max_surrogate_beliefs for ii in 2:num_agents)
+    end
+    
     indiv_control = Vector{SinglePolicy{S,A,O}}(undef, num_agents)
     surrogate_beliefs = Dict{Int, EstimatedBelief}()
     for ii in 1:num_agents
@@ -123,7 +131,8 @@ function Conflation(
         end
     end
     return Conflation(joint_problem, joint_policy, indiv_control, 
-        surrogate_beliefs, prune_option, joint_belief_delta, single_belief_delta)
+        surrogate_beliefs, prune_option, joint_belief_delta, single_belief_delta, 
+        max_surrogate_beliefs)
 end
 
 
@@ -294,8 +303,9 @@ function prune!(control::Conflation{S, A, O}, acts::Vector{A}) where {S,A,O}
             deleteat!(eb.beliefs, delete_idxs)
             deleteat!(eb.weights, delete_idxs)
         else
-            @info "Shared action would have pruned all surrogate beliefs for Agent $ii"
+            @debug "Shared action would have pruned all surrogate beliefs for Agent $ii"
         end
+        enforce_max_size!(eb, control.max_surrogate_beliefs[ii])
     end
 end
 
@@ -319,8 +329,62 @@ function prune!(control::Conflation, alpha_idx::Vector{Int})
             deleteat!(eb.beliefs, delete_idxs)
             deleteat!(eb.weights, delete_idxs)
         else
-            @info "Shared alpha vector index would have pruned all surrogate beliefs for Agent $ii"
+            @debug "Shared alpha vector index would have pruned all surrogate beliefs for Agent $ii"
         end
+        enforce_max_size!(eb, control.max_surrogate_beliefs[ii])
+    end
+end
+
+function enforce_max_size!(eb::EstimatedBelief, max_size::Int)
+    beliefs = eb.beliefs
+    weights = eb.weights
+    # If number of beleifs is greater than the max size, reduce the number by removing
+    # similar beliefs even if outside of delta.
+    if length(beliefs) > max_size
+        @info "Reached max surrogate beliefs: $(length(beliefs)), reducing to $max_size"
+        
+        n = length(beliefs)
+        dists = Vector{NamedTuple}(undef, div(n * (n - 1), 2))
+        idx = 1
+        for idx_i in 1:(n-1)
+            for idx_j in (idx_i+1):length(beliefs)
+                dists[idx] = (distance=norm(beliefs[idx_i].b - beliefs[idx_j].b, 1), idx_i=idx_i, idx_j=idx_j)
+                idx += 1
+            end
+        end
+
+        # Sort distances in ascending order
+        sort!(dists, by=x->x.distance)
+
+        # Initialize a boolean array to track beliefs to keep
+        keep = trues(n)
+        current_entry = 1
+
+        # Remove beliefs until the desired number is reached
+        while sum(keep) > max_size && current_entry <= length(dists)
+            idx_i = dists[current_entry].idx_i
+            idx_j = dists[current_entry].idx_j
+
+            if keep[idx_i] && keep[idx_j]
+                # Remove the belief with the lower weight
+                if weights[idx_i] <= weights[idx_j]
+                    keep[idx_i] = false
+                    weights[idx_j] += weights[idx_i]
+                else
+                    keep[idx_j] = false
+                    weights[idx_i] += weights[idx_j]
+                end
+            end
+            current_entry += 1
+        end
+
+        if sum(keep) > max_size
+            error("Shouldn't be able to get here. Check the logic above.")
+        end
+
+        # Update beliefs and weights to only include kept beliefs
+        eb.beliefs = eb.beliefs[keep]
+        eb.weights = eb.weights[keep]
     end
 end
 
@@ -489,7 +553,7 @@ function update_belief!(control::Conflation{S, A, O}, act::A, o::O) where {S, A,
                         min_l1_dist = Inf
                     end
                     
-                    if min_l1_dist <= control.single_belief_delta + eps(typeof(control.single_belief_delta))
+                    if min_l1_dist <= control.single_belief_delta
                         new_weights[min_idx] += eb.weights[ii]
                     else
                         push!(new_beliefs, bp)
@@ -642,7 +706,11 @@ function POMDPTools.render(control::Conflation, plot_step::NamedTuple)
     end
     
     conflated_b = select_belief(control)
-    plot_step_conflated = (s=plot_step.s, a=plot_step.a, b=conflated_b)
+    if !isnothing(get(plot_step, :a, nothing))
+        plot_step_conflated = (s=plot_step.s, a=plot_step.a, b=conflated_b)
+    else
+        plot_step_conflated = (s=plot_step.s, b=conflated_b)
+    end
     plt = POMDPTools.render(control.joint_problem, plot_step_conflated; title_str="\nSelected Conflated Belief")
     push!(plts, plt)
 
