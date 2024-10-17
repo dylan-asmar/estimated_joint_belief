@@ -7,3 +7,5 @@ model.pomdpx
 src/policies/*.jld2
 src/results/*
 *.tex
+Supplementary Material/*
+SupplementaryMaterial.zip
