@@ -114,10 +114,6 @@ function run_simulation(
             println()
         end
         
-        # For debugging
-        # if results.step_count == 13
-        #     return joint_control, control, sp, o, r
-        # end
         # Update the results struct
         results.cum_reward += r
         results.cum_discounted_rew += r * γ^(results.step_count-1)
@@ -150,24 +146,6 @@ function run_simulation(
             
         # Update the state and check if the simulation should continue
         s = sp
-        
-        # Plotting options to visualize the simulation and policy decisions
-        if show_plots
-            if !isnothing(joint_control)
-                if joint_control isa ConflateJoint
-                    joint_conflated_b = conflate_beliefs(joint_control.joint_problem, [cp.belief for cp in joint_control.indiv_control])
-                    plot_step = (s=s, joint_b=joint_conflated_b)
-                elseif joint_control isa SinglePolicy || joint_control isa JointPolicy
-                    plot_step = (s=s, joint_b=joint_control.belief)
-                else
-                    throw(ArgumentError("Invalid joint control for simulation plotting: $(typeof(joint_control))"))
-                end
-            else
-                plot_step = (s=s, a=act)
-            end
-            plt = POMDPTools.render(control, plot_step)
-            display(plt)
-        end
         
         if isterminal(problem, s) || results.step_count >= max_steps
             stop_simulating = true

@@ -97,6 +97,11 @@ PARAM_OPTIONS = Dict(
         wall_penalty=-0.1))
 )
 
+"""
+    get_problem(param_option::Symbol, observation_agent::Int; kwparams::NamedTuple=NamedTuple())
+
+Get a POMDP problem from the parameter options.
+"""
 function get_problem(
     param_option::Symbol,
     observation_agent::Int;

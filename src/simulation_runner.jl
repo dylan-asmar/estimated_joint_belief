@@ -154,26 +154,25 @@ end
 # global_logger(ConsoleLogger(Debug)) # Comment/uncomment as desired
 
 sims_to_run = [ 
-                # :tiger, :tiger_3, :tiger_4, 
-                # :broadcast, :broadcast_dp_wp_3,                 
-                # :joint_meet_2x2, 
-                # :joint_meet_2x2_13, 
-                # :joint_meet_3x3,  
-                # :joint_meet_2x2_ui_wp,
-                # :box_push,
-                # :stochastic_mars,
-                # :stochastic_mars_ui,
-                # :joint_meet_3x3_ag_ui_wp,
-                # :stochastic_mars_ui_3,
-                # :stochastic_mars_5g_ui,
-                # :joint_meet_3x3_ag_ui_wp_3,
+                :tiger, :tiger_3, :tiger_4, 
+                :broadcast, :broadcast_dp_wp_3,                 
+                :joint_meet_2x2, 
+                :joint_meet_2x2_13, 
+                :joint_meet_3x3,  
+                :joint_meet_2x2_ui_wp,
+                :box_push,
+                :stochastic_mars,
+                :stochastic_mars_ui,
+                :joint_meet_3x3_ag_ui_wp,
+                :stochastic_mars_ui_3,
+                :stochastic_mars_5g_ui,
+                :joint_meet_3x3_ag_ui_wp_3,
                 :box_push_so,
-                # :wireless, :wireless_wp,
-                # :joint_meet_19_lr_ui_wp, 
+                :wireless, :wireless_wp,
+                :joint_meet_19_lr_ui_wp, 
 ]
 
-# controllers_to_run = [:independent, :mpomdp, :pomdp_1, :conflate_joint, :conflate_alpha, :conflate_action]
-controllers_to_run = [:conflate_alpha, :conflate_action]
+controllers_to_run = [:independent, :mpomdp, :pomdp_1, :conflate_joint, :conflate_alpha, :conflate_action]
 
 num_runs = 2000
 
@@ -199,30 +198,3 @@ for sim in sims_to_run
         CSV.write(results_fn, df)
     end
 end
-
-# problem_symbol = :joint_meet_19_lr_ui_wp
-# problem_symbol = :box_push_so
-# control_option = :conflate_action
-
-# joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(problem_symbol)
-
-# # # print_policy_values(problem_symbol)
-
-# # joint_control = get_controller(:mpomdp, joint_problem, joint_policy, agent_problems, agent_policies)
-# # joint_control = get_controller(:conflate_joint, joint_problem, joint_policy, agent_problems, agent_policies)
-# joint_control = nothing
-# control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies; delta_single=1e-5, delta_joint=1e-5, max_beliefs=200)
-
-# seed = 1653
-# seed = 112
-
-# s0 = rand(MersenneTwister(seed), initialstate(joint_problem))
-
-# results = run_simulation(
-#     joint_problem, s0, control;
-#     seed=seed,
-#     text_output=false, 
-#     max_steps=50,
-#     show_plots=false,
-#     joint_control=joint_control
-# )

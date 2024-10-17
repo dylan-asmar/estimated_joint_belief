@@ -79,6 +79,11 @@ function ConflateJoint(
     return ConflateJoint(joint_problem, joint_policy, indiv_control)
 end
 
+"""
+    EstimatedBelief
+    
+The estimated belief set for an agent.
+"""
 mutable struct EstimatedBelief
     const problem::POMDP
     const policy::AlphaVectorPolicy
@@ -94,6 +99,11 @@ end
 
 Base.length(eb::EstimatedBelief) = length(eb.beliefs)
 
+"""
+    Conflation
+
+MCAS using clongation to combine the beliefs.
+"""
 struct Conflation{S, A, O} <: MultiAgentControlStrategy
     joint_problem::POMDP{S, A, O}
     joint_policy::AlphaVectorPolicy
@@ -133,76 +143,6 @@ function Conflation(
     return Conflation(joint_problem, joint_policy, indiv_control, 
         surrogate_beliefs, prune_option, joint_belief_delta, single_belief_delta, 
         max_surrogate_beliefs)
-end
-
-
-struct DecConflation{S, A, O} <: MultiAgentControlStrategy
-    joint_problem::POMDP{S, A, O}
-    joint_policy::AlphaVectorPolicy
-    indiv_control::Vector{SinglePolicy{S, A, O}}
-    surrogate_beliefs::Vector{Dict{Int, EstimatedBelief}}
-    prune_option::Symbol
-    joint_belief_delta::Float64
-    single_belief_delta::Float64
-end
-function DecConflation(
-    joint_problem::POMDP{S, A, O},
-    joint_policy::AlphaVectorPolicy,
-    problems::Vector{<:POMDP},
-    policies::Vector{AlphaVectorPolicy};
-    prune_option::Symbol=:alpha,
-    joint_belief_delta::Float64=0.0,
-    single_belief_delta::Float64=0.0
-) where {S,A,O}
-    num_agents = problems[1].num_agents
-    indiv_control = Vector{SinglePolicy{S,A,O}}(undef, num_agents)
-    surrogate_beliefs = Vector{Dict{Int, EstimatedBelief}}(undef, num_agents)
-    for ii in 1:num_agents
-        indiv_control[ii] = SinglePolicy(problems[ii], ii, policies[ii])
-        
-        # Surrogate beliefs are using the actual problems and policies of other agents
-        surrogate_beliefs_i = Dict{Int, EstimatedBelief}()
-        for jj in 1:num_agents
-            if ii == jj
-                continue
-            end
-            surrogate_beliefs_i[jj] = EstimatedBelief(problems[jj], policies[jj])
-        end
-        surrogate_beliefs[ii] = surrogate_beliefs_i
-    end
-    return Conflation(joint_problem, joint_policy, indiv_control, 
-        surrogate_beliefs, prune_option, joint_belief_delta, single_belief_delta)
-end
-
-
-struct EstimatedJoint{S, A, O} <: MultiAgentControlStrategy
-    joint_problem::POMDP{S, A, O}
-    joint_policy::AlphaVectorPolicy
-    indiv_control::Vector{Independent}
-    surrogate_beliefs::Dict{Int, EstimatedBelief}
-    est_joint_beliefs::Vector
-    est_joint_weights::Vector{Float64}
-end
-function EstimatedJoint(
-    joint_problem::POMDP,
-    joint_policy::AlphaVectorPolicy,
-    problems::Vector{POMDP},
-    policies::Vector{AlphaVectorPolicy}
-)
-    num_agents = problems[1].num_agents
-    indiv_control = Vector{SinglePolicy}(undef, num_agents)
-    surrogate_beliefs = Dict{Int, EstimateBelief}()
-    for ii in 1:num_agents
-        indiv_control[ii] = SinglePolicy(problems[ii], ii, policies[ii])
-        if ii != 1
-            # Surrogate beliefs are using the actual problems and policies of other agents
-            surrogate_beliefs[ii] = EstimatedBelief(problems[ii], policies[ii])
-        end
-    end
-    # Initial estimate of the joint belief is the starting belief of controlling agent
-    est_joint_belief = [indiv_control[1].belief]
-    est_joint_weights = [1.0]
-    return EstimatedJoint(joint_problem, joint_policy, indiv_control, surrogate_beliefs, est_joint_belief, est_joint_weights)
 end
 
 # Extended to get alpha vector index back in the info NamedTuple
@@ -758,6 +698,3 @@ function POMDPTools.render(control::Conflation, plot_step::NamedTuple)
     adjusted_h = h * num_plots_h * 1.0
     return plot(plts..., layout=(num_plots_h, num_plots_w), size=(adjusted_w, adjusted_h))
 end
-    
-    
-    
