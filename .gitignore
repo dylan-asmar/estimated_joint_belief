@@ -4,5 +4,6 @@ archive/*
 Manifest.toml
 policy.out
 model.pomdpx
-src/policies/*
+src/policies/*.jld2
 src/results/*
+*.tex
