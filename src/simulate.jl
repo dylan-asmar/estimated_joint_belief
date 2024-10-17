@@ -1,23 +1,14 @@
 using POMDPs
 using POMDPTools
 import SARSOP
-import NativeSARSOP
-
 using Random
 using Plots
 using StatsBase
 using JLD2
 using Printf
-
-# using JuMP
-# using Gurobi
-using Distances
-
 using LinearAlgebra
-
 using DataFrames
 using ProgressMeter
-
 using MultiAgentPOMDPProblems
     
 include("suggested_action_policies.jl")

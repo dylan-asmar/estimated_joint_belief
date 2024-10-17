@@ -1,12 +1,16 @@
+
 using POMDPs
 using POMDPTools
 using MultiAgentPOMDPProblems
 using ProgressMeter
 using Printf
 using JLD2
+
+using DiscreteValueIteration # needed for loading the MMDP policy
+
+# Used for handling results
 using CSV
 using DataFrames
-using DiscreteValueIteration
 using DataFrames
 using Logging
 using Dates
@@ -14,89 +18,7 @@ using Dates
 include("problems.jl")
 include("suggested_action_policies.jl")
 include("simulate.jl")
-
-function load_policy(problem_symbol::Symbol)
-    # Load joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy
-    load_path = joinpath("src", "policies", "$problem_symbol.jld2")
-    loaded_data = JLD2.load(load_path)
-    joint_problem = loaded_data["joint_problem"]
-    agent_problems = loaded_data["agent_problems"]
-    joint_policy = loaded_data["joint_policy"]
-    agent_policies = loaded_data["agent_policies"]
-    joint_mdp_policy = loaded_data["joint_mdp_policy"]
-
-    return joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy
-end
-
-function get_controller(
-    control_option::Symbol, joint_problem, joint_policy, agent_problems, agent_policies;
-    delta_single::Float64=1e-5,
-    delta_joint::Float64=1e-5,
-    max_beliefs::Int=1_000_000
-)
-    if control_option == :mpomdp
-        control = JointPolicy(joint_problem, joint_policy)
-    elseif control_option == :pomdp_1
-        control = SinglePolicy(agent_problems[1], 1, agent_policies[1])
-    elseif control_option == :pomdp_2
-        control = SinglePolicy(agent_problems[2], 2, agent_policies[2])
-    elseif control_option == :independent
-        control = Independent(agent_problems, agent_policies)
-    elseif control_option == :conflate_joint
-        control = ConflateJoint(joint_problem, joint_policy, agent_problems, agent_policies)
-    elseif control_option == :conflate_alpha
-        control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
-            prune_option=:alpha,
-            joint_belief_delta=delta_joint,
-            single_belief_delta=delta_single,
-            max_surrogate_beliefs=max_beliefs
-        )
-    elseif control_option == :conflate_action
-        control = Conflation(joint_problem, joint_policy, agent_problems, agent_policies;
-            prune_option=:action,
-            joint_belief_delta=delta_joint,
-            single_belief_delta=delta_single,
-            max_surrogate_beliefs=max_beliefs
-        )
-    else
-        throw(ArgumentError("Invalid control option: $control_option"))
-    end
-end
-
-function print_policy_values(problem_symbol::Symbol)
-    p = get_problem(problem_symbol, 1)
-    num_agents = p.num_agents
-    
-    # Load the CSV file
-    csv_file = joinpath("src", "policies", "policy_values.csv")
-    df = CSV.read(csv_file, DataFrame)
-
-    # Filter for the most recent entries for the given problem symbol
-    most_recent_entries = df[df[:, :problem] .== string(problem_symbol), :]
-
-    # Sort by date and time to get the most recent ones first
-    most_recent_entries = sort(most_recent_entries, [:date, :time], rev=true)
-
-    # Get the most recent entry for each policy
-    unique_policies = unique(most_recent_entries[:, :policy])
-    most_recent_policy_entries = DataFrame()
-
-    for policy in unique_policies
-        policy_entries = most_recent_entries[most_recent_entries[:, :policy] .== policy, :]
-        most_recent_policy_entry = first(policy_entries, 1)
-        append!(most_recent_policy_entries, most_recent_policy_entry)
-    end
-
-    # Create a dictionary mapping policy to value for the most recent entries
-    policy_to_value = Dict(most_recent_policy_entries[:, :policy] .=> most_recent_policy_entries[:, :value])
-
-    @printf("%-10s : %10.4f\n", "MMDP", policy_to_value["mmdp"])
-    @printf("%-10s : %10.4f\n", "MPOMDP", policy_to_value["mpomdp"])
-    for ii in 1:num_agents
-        pomdp_str = "pomdp_$ii"
-        @printf("%-10s : %10.4f\n", uppercase(pomdp_str), policy_to_value[pomdp_str])
-    end
-end
+include("problem_and_policy_helpers.jl")
 
 function run_simulation_for_policy(problem_symbol::Symbol, control_option::Symbol; 
     delta_single::Float64=1e-5, delta_joint::Float64=1e-5, max_beliefs::Int=1_000_000,
@@ -231,42 +153,38 @@ end
 
 # global_logger(ConsoleLogger(Debug)) # Comment/uncomment as desired
 
-# sims_to_run = [ :tiger, :tiger_3, :tiger_4, 
-#                 :broadcast, :broadcast_3_wp_low,                 
-#                 :joint_meet_2x2, 
-#                 :joint_meet_2x2_13, 
-#                 :joint_meet_3x3,  
-#                 :joint_meet_2x2_wp_uni_init,
-#                 :box_push,
-#                 :stochastic_mars,
-#                 :stochastic_mars_uni_init,
-#                 :joint_meet_3x3_wp_uni_init,
-#                 :stochastic_mars_3_uni_init,
-#                 :stochastic_mars_big_uni,
-#                 :joint_meet_3_3x3_wp_uni_init,
-#                 :wireless, :wireless_wp,
-#                 :box_push_obs_05,
-#                 :joint_meet_big_wp_uni_lr, 
-# ]
+sims_to_run = [ 
+                # :tiger, :tiger_3, :tiger_4, 
+                # :broadcast, :broadcast_dp_wp_3,                 
+                # :joint_meet_2x2, 
+                # :joint_meet_2x2_13, 
+                # :joint_meet_3x3,  
+                # :joint_meet_2x2_ui_wp,
+                # :box_push,
+                # :stochastic_mars,
+                # :stochastic_mars_ui,
+                # :joint_meet_3x3_ag_ui_wp,
+                # :stochastic_mars_ui_3,
+                # :stochastic_mars_5g_ui,
+                # :joint_meet_3x3_ag_ui_wp_3,
+                :box_push_so,
+                # :wireless, :wireless_wp,
+                # :joint_meet_19_lr_ui_wp, 
+]
 
-sims_to_run = [:joint_meet_big_wp_uni_lr]
-
-controllers_to_run = [:independent, :mpomdp, :pomdp_1, :conflate_joint, :conflate_alpha, :conflate_action]
-
-# sims_to_run = [ :tiger, :tiger_3, :tiger_4]
-# controllers_to_run = [:mpomdp, :pomdp_1, :conflate_action]
+# controllers_to_run = [:independent, :mpomdp, :pomdp_1, :conflate_joint, :conflate_alpha, :conflate_action]
+controllers_to_run = [:conflate_alpha, :conflate_action]
 
 num_runs = 2000
 
 
-existing_results = joinpath("src", "results", "results_2024_10-15_15-44.csv")
+existing_results = joinpath("src", "results", "results_2024-10-15_16-01.csv")
 if isfile(existing_results)
     df = CSV.read(existing_results, DataFrame)
 else
     df = DataFrame()
 end
 
-df = DataFrame()
 results_fn = joinpath("src", "results", "results_$(Dates.format(now(), "yyyy-mm-dd_HH-MM")).csv")
 
 for sim in sims_to_run
@@ -282,8 +200,8 @@ for sim in sims_to_run
     end
 end
 
-# problem_symbol = :joint_meet_big_wp_uni_lr
-# problem_symbol = :box_push_obs_05
+# problem_symbol = :joint_meet_19_lr_ui_wp
+# problem_symbol = :box_push_so
 # control_option = :conflate_action
 
 # joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(problem_symbol)

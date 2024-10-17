@@ -13,7 +13,7 @@ PARAM_OPTIONS = Dict(
         send_penalty=-0.2)),
     :broadcast_3 => (BroadcastChannelPOMDP, (num_agents=3,
         buffer_fill_prob=[0.8, 0.1, 0.1])),
-    :broadcast_3_wp_low => (BroadcastChannelPOMDP, (num_agents=3,
+    :broadcast_dp_wp_3 => (BroadcastChannelPOMDP, (num_agents=3,
         buffer_fill_prob=[0.2, 0.4, 0.4],
         send_penalty=-0.2)),
     
@@ -30,16 +30,16 @@ PARAM_OPTIONS = Dict(
     :stochastic_mars => (StochasticMarsPOMDP, (num_agents=2,
         map_str="ds\nsd",
         init_state=StochasticMarsState((1, 1), falses(4)))),
-    :stochastic_mars_uni_init => (StochasticMarsPOMDP, (num_agents=2,
+    :stochastic_mars_ui => (StochasticMarsPOMDP, (num_agents=2,
         map_str="ds\nsd")),
-    :stochastic_mars_big_uni => (StochasticMarsPOMDP, (num_agents=2,
+    :stochastic_mars_5g_ui => (StochasticMarsPOMDP, (num_agents=2,
         map_str="dss\nsdx")),
-    :stochastic_mars_3_uni_init => (StochasticMarsPOMDP, (num_agents=3,
+    :stochastic_mars_ui_3 => (StochasticMarsPOMDP, (num_agents=3,
         map_str="ds\nsd")),
     
     :box_push => (BoxPushPOMDP, (num_agents=2,
         map_option=1)),
-    :box_push_obs_05 => (BoxPushPOMDP, (num_agents=2,
+    :box_push_so => (BoxPushPOMDP, (num_agents=2,
         map_option=1,
         observation_prob=0.5)),
     :box_push_2 => (BoxPushPOMDP, (num_agents=2,
@@ -53,7 +53,7 @@ PARAM_OPTIONS = Dict(
         map_str="oo\noo",
         observation_option=:boundaries_lr,
         init_state=JointMeetState((1, 3)))),
-    :joint_meet_2x2_wp_uni_init => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_2x2_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="oo\noo",
         observation_option=:boundaries_lr,
         wall_penalty=-0.1)),
@@ -62,11 +62,11 @@ PARAM_OPTIONS = Dict(
         observation_option=:boundaries_both,
         init_state=JointMeetState((3, 7)),
         meet_reward_locations=[1, 9])),
-    :joint_meet_3x3_wp_uni_init => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_3x3_ag_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="ooo\nooo\nooo",
         observation_option=:boundaries_both,
         wall_penalty=-0.1)),
-    :joint_meet_big_wp_uni_both => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_19_both_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="""oxoooxo
                    oxoooxo
                    ooooooo
@@ -74,7 +74,7 @@ PARAM_OPTIONS = Dict(
                    oxoooxo""",
         observation_option=:boundaries_both,
         wall_penalty=-0.1)),
-    :joint_meet_big_wp_uni_ls_03 => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_19_ls03_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="""oxoooxo
                    oxoooxo
                    ooooooo
@@ -83,11 +83,11 @@ PARAM_OPTIONS = Dict(
         observation_option=:left_and_same,
         wall_penalty=-0.1,
         observation_sigma=0.3)),
-    :joint_meet_3_3x3_wp_uni_init => (JointMeetPOMDP, (num_agents=3,
+    :joint_meet_3x3_ag_ui_wp_3 => (JointMeetPOMDP, (num_agents=3,
         map_str="ooo\nooo\nooo",
         observation_option=:boundaries_both,
         wall_penalty=-0.1)),
-    :joint_meet_big_wp_uni_lr => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_19_lr_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="""oxoooxo
                    oxoooxo
                    ooooooo
@@ -116,14 +116,3 @@ function get_problem(
 
     return problem_type(; observation_agent=observation_agent, kwparams...)
 end
-
-
-# # Loops through PARAM_OPTIONS 
-# for k in keys(PARAM_OPTIONS)
-#     try
-#         @printf("\nProblem: %s\n", k)
-#         print_policy_values(k)
-#     catch e
-#         continue
-#     end
-# end

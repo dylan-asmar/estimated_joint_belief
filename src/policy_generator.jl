@@ -4,7 +4,6 @@ using MultiAgentPOMDPProblems
 using SARSOP
 using DiscreteValueIteration
 using Printf
-# import NativeSARSOP
 using JLD2
 using Dates
 using CSV
@@ -12,34 +11,44 @@ using DataFrames
 
 include("problems.jl")
 
-# PROBLEMS_TO_RUN = [
-#     (:tiger, 60.0),
-#     (:tiger_3, 60.0),
-#     (:tiger_4, 60.0),
-#     (:broadcast, 120.0),
-#     (:broadcast_wp, 120.0),
-#     (:broadcast_3, 120.0),
-#     (:broadcast_3_wp_low, 120.0),
-#     (:stochastic_mars, 60.0),
-#     (:stochastic_mars_uni_init, 120.0),
-#     (:stochastic_mars_big_uni, 300.0),
-#     (:box_push, 120.0),
-#     (:box_push_obs_05, 300.0),
-#     (:joint_meet_2x2, 120.0),
-#     (:joint_meet_2x2_13, 120.0),
-#     (:joint_meet_2x2_wp_uni_init, 240.0)
-#     (:joint_meet_3x3, 240.0),
-#     (:joint_meet_3x3_wp_uni_init, 300.0),
-#     (:joint_meet_big_wp_uni_both, 1200.0),
-#     (:joint_meet_big_wp_uni_ls_03, 1800.0),
-#     (:wireless, 600.0),
-#     (:wireless_wp, 600.0),
-#     (:joint_meet_3x3_wp_uni_init, 300.0),
-#     (:joint_meet_3_3x3_wp_uni_init, 8000.0),
-#     (:joint_meet_big_wp_uni_lr, 6000.0)
-# ]
+PROBLEMS_TO_RUN = [
+    (:tiger, 60.0),
+    (:tiger_3, 60.0),
+    (:tiger_4, 60.0),
+    (:broadcast, 120.0),
+    (:broadcast_wp, 120.0),
+    (:broadcast_3, 120.0),
+    (:broadcast_dp_wp_3, 120.0),
+    (:stochastic_mars, 60.0),
+    (:stochastic_mars_ui, 120.0),
+    (:stochastic_mars_5g_ui, 300.0),
+    (:box_push, 120.0),
+    (:box_push_so, 300.0),
+    (:joint_meet_2x2, 120.0),
+    (:joint_meet_2x2_13, 120.0),
+    (:joint_meet_2x2_ui_wp, 240.0),
+    (:joint_meet_3x3, 240.0),
+    (:joint_meet_3x3_ag_ui_wp, 300.0),
+    (:joint_meet_3x3_ag_ui_wp_3, 8000.0),
+    (:joint_meet_19_lr_ui_wp, 6000.0),
+    (:wireless, 600.0),
+    (:wireless_wp, 600.0),
+]
 
+"""
+    Solves the problem using SARSOP and then saves the results to a file.
+    
+## Example usage:
 
+### Solving a single problem
+    problem_symbol, max_time = PROBLEMS_TO_RUN[8]
+    solve_and_save_problem(problem_symbol, max_time)
+    
+### Solving all problems
+    for (problem_symbol, max_time) in PROBLEMS_TO_RUN
+        solve_and_save_problem(problem_symbol, max_time)
+    end
+"""
 function solve_and_save_problem(problem_symbol::Symbol, max_time::Float64)
 
     joint_problem = get_problem(problem_symbol, 0)
@@ -74,7 +83,12 @@ function solve_and_save_problem(problem_symbol::Symbol, max_time::Float64)
     
     
     # If CSV for policy values exist, append the results, otherwise create a new CSV
-    csv_file = joinpath("src", "policies", "policy_values.csv")
+    policies_dir = joinpath("src", "policies")
+    if !isdir(policies_dir)
+        mkdir(policies_dir)
+    end
+    
+    csv_file = joinpath(policies_dir, "policy_values.csv")
     if isfile(csv_file)
         df = CSV.read(csv_file, DataFrame; types=Dict(:problem => String, :policy => String))
     else
@@ -106,11 +120,4 @@ function solve_and_save_problem(problem_symbol::Symbol, max_time::Float64)
     end
     
     @info "Complete!"
-end
-
-# problem_symbol, max_time = PROBLEMS_TO_RUN[8]
-# solve_and_save_problem(problem_symbol, max_time)
-
-for (problem_symbol, max_time) in PROBLEMS_TO_RUN
-    solve_and_save_problem(problem_symbol, max_time)
 end
