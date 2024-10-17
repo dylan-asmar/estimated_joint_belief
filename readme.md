@@ -14,17 +14,21 @@ This repository contains the code and supplementary materials for the paper "Eff
 │   ├── policies/                       # Contains a subset of generated policies
 │   └── results/                        # Contains simulation results
 │
-└── MultiAgentPOMDPProblems/
-    └── src/
-        ├── BoxPush/                    # Cooperative Box Push
-        ├── JointMeet/                  # Meeting in a Grid
-        ├── broadcast_channel.jl        # Broadcast Channel
-        ├── multi_tiger_pomdp.jl        # Dec-Tiger
-        ├── multi_wireless.jl           # Wireless Network
-        ├── sotchastic_mars.jl          # Mars Rover
-        ├── vis_utils.jl                # Visualization Utilities
-        └── MultiAgentPOMDPProblems.jl  # Package definition
-
+├── MultiAgentPOMDPProblems/
+│   └── src/
+│       ├── BoxPush/                    # Cooperative Box Push
+│       ├── JointMeet/                  # Meeting in a Grid
+│       ├── broadcast_channel.jl        # Broadcast Channel
+│       ├── multi_tiger_pomdp.jl        # Dec-Tiger
+│       ├── multi_wireless.jl           # Wireless Network
+│       ├── sotchastic_mars.jl          # Mars Rover
+│       ├── vis_utils.jl                # Visualization Utilities
+│       └── MultiAgentPOMDPProblems.jl  # Package definition
+|
+├── install.jl                        # Installs the package
+├── README.md                         # This file
+├── Project.toml                      # Defines the package requirements
+└── Appendix A.pdf                    # Additional results (average and maximum size of belief sets)
 ```
 
 ## Installation
@@ -106,7 +110,34 @@ results = run_simulation(
 )
 ```
 
+### Example Usage (Meeting in a 2 x 2 Grid UI, WP)
 
+
+```julia
+# Same packages as above and included files
+
+problem_symbol = :joint_meet_2x2_ui_wp
+control_option = :conflate_action
+
+joint_problem, agent_problems, joint_policy, agent_policies, joint_mdp_policy = load_policy(problem_symbol)
+
+joint_control = get_controller(:mpomdp, joint_problem, joint_policy, agent_problems, agent_policies) # Used to visualize the joint belief for comparison
+# joint_control = nothing # This should be used when not wanting a visualization of the joint policy
+control = get_controller(control_option, joint_problem, joint_policy, agent_problems, agent_policies; delta_single=1e-5, delta_joint=1e-5, max_beliefs=200)
+
+seed = 43
+
+s0 = rand(MersenneTwister(seed), initialstate(joint_problem))
+
+results = run_simulation(
+    joint_problem, s0, control;
+    seed=seed,
+    text_output=false,
+    max_steps=10,
+    show_plots=true,
+    joint_control=joint_control
+)
+```
 
 ## Paper Experiments
 
