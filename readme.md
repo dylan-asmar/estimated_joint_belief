@@ -2,6 +2,8 @@
 
 This repository contains the code and supplementary materials for the paper "Efficient Multiagent Planning via Shared Action Suggestions".
 
+[arXiv Paper](https://arxiv.org/abs/2412.11430)
+
 ## Repository Structure
 
 ```
