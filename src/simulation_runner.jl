@@ -169,7 +169,7 @@ sims_to_run = [
                 :joint_meet_3x3_ag_ui_wp_3,
                 :box_push_so,
                 :wireless, :wireless_wp,
-                :joint_meet_19_lr_ui_wp, 
+                :joint_meet_27_lr_ui_wp, 
 ]
 
 controllers_to_run = [:independent, :mpomdp, :pomdp_1, :conflate_joint, :conflate_alpha, :conflate_action]

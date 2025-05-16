@@ -66,7 +66,7 @@ PARAM_OPTIONS = Dict(
         map_str="ooo\nooo\nooo",
         observation_option=:boundaries_both,
         wall_penalty=-0.1)),
-    :joint_meet_19_both_ui_wp => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_27_both_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="""oxoooxo
                    oxoooxo
                    ooooooo
@@ -74,7 +74,7 @@ PARAM_OPTIONS = Dict(
                    oxoooxo""",
         observation_option=:boundaries_both,
         wall_penalty=-0.1)),
-    :joint_meet_19_ls03_ui_wp => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_27_ls03_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="""oxoooxo
                    oxoooxo
                    ooooooo
@@ -87,7 +87,7 @@ PARAM_OPTIONS = Dict(
         map_str="ooo\nooo\nooo",
         observation_option=:boundaries_both,
         wall_penalty=-0.1)),
-    :joint_meet_19_lr_ui_wp => (JointMeetPOMDP, (num_agents=2,
+    :joint_meet_27_lr_ui_wp => (JointMeetPOMDP, (num_agents=2,
         map_str="""oxoooxo
                    oxoooxo
                    ooooooo

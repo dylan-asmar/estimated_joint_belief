@@ -30,7 +30,7 @@ PROBLEMS_TO_RUN = [
     (:joint_meet_3x3, 240.0),
     (:joint_meet_3x3_ag_ui_wp, 300.0),
     (:joint_meet_3x3_ag_ui_wp_3, 8000.0),
-    (:joint_meet_19_lr_ui_wp, 6000.0),
+    (:joint_meet_27_lr_ui_wp, 6000.0),
     (:wireless, 600.0),
     (:wireless_wp, 600.0),
 ]

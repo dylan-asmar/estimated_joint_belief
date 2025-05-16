@@ -20,6 +20,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 Graphs = "1"
-julia = "1.8"
-POMDPs = "1"
 POMDPTools = "1"
+POMDPs = "1"
+julia = "1.8"

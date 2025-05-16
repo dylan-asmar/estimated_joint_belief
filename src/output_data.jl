@@ -25,7 +25,7 @@ problem_order = [
     "broadcast", "broadcast_dp_wp_3", 
     "joint_meet_2x2", "joint_meet_2x2_13", "joint_meet_2x2_ui_wp", 
     "joint_meet_3x3", "joint_meet_3x3_ag_ui_wp", "joint_meet_3x3_ag_ui_wp_3", 
-    "joint_meet_19_lr_ui_wp", 
+    "joint_meet_27_lr_ui_wp", 
     "box_push", "box_push_so", 
     "wireless", "wireless_wp", 
     "stochastic_mars", "stochastic_mars_ui", "stochastic_mars_ui_3", "stochastic_mars_5g_ui"]
@@ -42,7 +42,7 @@ problem_mapping = Dict(
     "joint_meet_3x3"           => ("Meet 3 x 3", "---", 2),
     "joint_meet_3x3_ag_ui_wp" => ("Meet 3 x 3", "AG, UI, WP", 2),
     "joint_meet_3x3_ag_ui_wp_3" => ("Meet 3 x 3", "AG, UI, WP", 3),
-    "joint_meet_19_lr_ui_wp" => ("Meet 19", "UI, WP", 2),
+    "joint_meet_27_lr_ui_wp" => ("Meet 27", "UI, WP", 2),
     "box_push" => ("Box Push", "---", 2),
     "box_push_so" => ("Box Push", "SO", 2),
     "wireless" => ("Wireless", "---", 2),
